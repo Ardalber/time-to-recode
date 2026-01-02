@@ -1,0 +1,20 @@
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+body{margin:0;display:flex;flex-direction:column;height:100vh}
+header{background:#222;color:#fff;padding:10px}
+main{flex:1;display:flex;gap:12px;padding:12px}
+#canvasWrap{flex:1}
+#editorCanvas{background:#0a0f12;border:1px solid #222;display:block}
+aside#controls{width:320px;background:#f5f5f5;border-left:1px solid #ddd;padding:12px}
+.panel{margin-bottom:12px;padding:8px;border-radius:6px;background:#fff;border:1px solid #e6e6e6}
+#spriteList{display:flex;flex-wrap:wrap;gap:6px}
+.spriteItem{width:48px;height:48px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#fff}
+.spriteItem.selected{outline:3px solid #2b6cb0}
+.typeBtn{margin-right:6px;margin-top:6px}
+button{padding:6px 8px}
+input[type=file]{width:100%}
+#saveName{width:100%;padding:6px;margin-top:6px}
+
+/* sprite picker popup */
+#spritePicker{background:#fff;border:1px solid #ccc;padding:6px;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.15);display:flex;flex-wrap:wrap;gap:6px}
+.spritePickItem{width:48px;height:48px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.spritePickItem:hover{outline:2px solid #2b6cb0}

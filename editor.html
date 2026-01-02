@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Éditeur de niveaux - Time To Recode</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <header>
+    <h1>Éditeur de niveaux (16×16)</h1>
+  </header>
+  <main>
+    <section id="canvasWrap">
+      <canvas id="editorCanvas" width="512" height="512"></canvas>
+      <div id="spritePicker" style="display:none; position:absolute; z-index:40"></div>
+    </section>
+    <aside id="controls">
+      <div class="panel">
+        <strong>Outils</strong>
+        <div>
+          <label><input type="radio" name="tool" value="paint" checked> Peindre</label>
+          <label><input type="radio" name="tool" value="erase"> Effacer</label>
+          <label><input type="radio" name="tool" value="player"> Placer joueur</label>
+          <label><input type="radio" name="tool" value="sprite"> Peindre sprite (par tuile)</label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <strong>Type de tuile à peindre</strong>
+        <div id="typeButtons">
+          <button data-type="1" class="typeBtn">Sol (1)</button>
+          <button data-type="2" class="typeBtn">Mur (2)</button>
+          <button data-type="3" class="typeBtn">Pépite (3)</button>
+          <button data-type="4" class="typeBtn">Item (4)</button>
+        </div>
+        <button id="assignSpriteToType" style="margin-top:8px">Associer sprite sélectionné au type</button>
+      </div>
+
+      <div class="panel">
+        <strong>Sélectionner un sprite</strong>
+        <div id="spriteList"></div>
+        <input id="spriteFile" type="file" accept="image/*" />
+        <div style="margin-top:6px">Sprite sélectionné: <span id="selectedSpriteName">(aucun)</span></div>
+        <button id="clearTileSprites">Effacer sprites par-tile</button>
+      </div>
+
+      <div class="panel">
+        <button id="clearBtn">Tout effacer</button>
+        <button id="undoBtn">Annuler (Undo)</button>
+        <button id="downloadBtn">Exporter (JSON)</button>
+        <input id="saveName" placeholder="mon_niveau.json" />
+        <label for="loadFile">Importer JSON:</label>
+        <input id="loadFile" type="file" accept="application/json" />
+      </div>
+
+      <div class="panel">
+        <strong>Ordre des niveaux</strong>
+        <div style="margin-bottom:6px">
+          <input id="seqFile" type="file" accept="application/json" />
+          <button id="addLevelFromFile">Ajouter</button>
+        </div>
+        <div id="sequenceList" style="max-height:160px; overflow:auto; border:1px solid #ddd; padding:6px"></div>
+        <div style="margin-top:6px">
+          <input id="sequenceName" placeholder="ordre_niveaux.json" />
+          <button id="saveSequenceBtn">Exporter l'ordre</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <small>Raccourcis: Clic pour peindre, glisser pour dessiner. Outils: Peindre/Effacer/Placer joueur.</small>
+      </div>
+    </aside>
+  </main>
+  <script src="editor.js"></script>
+</body>
+</html>

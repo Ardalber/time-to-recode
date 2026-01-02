@@ -71,6 +71,53 @@ function generateMap(){
   revealAround(player.x, player.y);
 }
 
+// --- level loading/saving utilities ---
+function applyLoadedLevel(obj){
+  if(!obj || !obj.map) return;
+  // replace map
+  map = obj.map.map(row => row.slice());
+  // ensure sizes match GRID
+  if(map.length !== GRID) {
+    // pad or trim
+    const newMap = [];
+    for(let y=0;y<GRID;y++){
+      const row = [];
+      for(let x=0;x<GRID;x++) row.push((map[y] && typeof map[y][x] !== 'undefined') ? map[y][x] : 1);
+      newMap.push(row);
+    }
+    map = newMap;
+  }
+  // set revealed to all true
+  revealed = [];
+  for(let y=0;y<GRID;y++){ const r = []; for(let x=0;x<GRID;x++) r.push(true); revealed.push(r); }
+  // player pos
+  if(obj.player){ player.x = obj.player.x; player.y = obj.player.y; }
+  else { player = {x: Math.floor(GRID/2), y:1}; }
+  // count treasures
+  treasuresRemaining = 0;
+  for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++) if(map[y][x] === 3) treasuresRemaining++;
+  updateHUD(); draw();
+}
+
+function loadLevel(filename){
+  if(!filename) return;
+  fetch('levels/' + filename)
+    .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(json => { applyLoadedLevel(json); pickupMessage = { text: 'Niveau chargé: ' + filename, start: performance.now(), x: player.x, y: player.y }; })
+    .catch(err => { pickupMessage = { text: 'Erreur chargement: ' + err.message, start: performance.now(), x: player.x, y: player.y }; draw(); });
+}
+
+function saveLevelDownload(filename){
+  if(!filename) return;
+  const obj = { name: filename, player: { x: player.x, y: player.y }, map: map };
+  const data = JSON.stringify(obj, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  pickupMessage = { text: 'Exporté: ' + filename, start: performance.now(), x: player.x, y: player.y };
+}
+
 function updateHUD(){
   scoreEl.textContent = score;
   treasuresEl.textContent = treasuresRemaining;
@@ -444,6 +491,18 @@ window.addEventListener('keydown', e=>{
   if(e.key === '2') editTool = 'erase';
   if(e.key === '3') editTool = 'treasure';
   if(e.key === '4') editTool = 'item';
+});
+
+// level load/save shortcuts: L = load (prompt for filename), K = save (export)
+window.addEventListener('keydown', e=>{
+  if(e.key === 'l' || e.key === 'L'){
+    const name = prompt('Nom du fichier niveau à charger (ex: level1.json)');
+    if(name) loadLevel(name);
+  }
+  if(e.key === 'k' || e.key === 'K'){
+    const name = prompt('Nom du fichier pour sauvegarder (ex: mylevel.json)');
+    if(name) saveLevelDownload(name);
+  }
 });
 pauseBtn.addEventListener('click', ()=>{ running=false; if(animationId) cancelAnimationFrame(animationId); animationId=null; });
 resetBtn.addEventListener('click', ()=>{ resetGame(); });
