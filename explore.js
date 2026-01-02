@@ -33,48 +33,33 @@ const STEP_DELAY = 120; // ms per step
 
 canvas.width = WIDTH; canvas.height = HEIGHT;
 
+// editor state
+let editMode = false; // press `E` to toggle
+let editTool = 'wall'; // 'wall' | 'erase' | 'treasure' | 'item'
+let isDrawing = false;
+let hoverTile = {x:-1,y:-1};
+
 // tile types: 0 = empty/floor, 1 = dirt/floor, 2 = wall/rock, 3 = treasure
 function generateMap(){
+  // create an open map with no walls (blocks) and no treasures
   map = []; revealed = [];
   treasuresRemaining = 0;
-  const treasureBase = 4;
-  const treasuresCount = treasureBase + Math.min(8, level);
-  // chance values
-  const wallChance = Math.min(0.35, 0.08 + level*0.03);
   for(let y=0;y<GRID;y++){
     const row = []; const rev = [];
     for(let x=0;x<GRID;x++){
       // always revealed (no fog)
       rev.push(true);
-      if(y === 0 || y === GRID-1 || x===0 || x===GRID-1){
-        row.push(2); // border walls
-      } else {
-        const r = Math.random();
-        if(r < wallChance) row.push(2);
-        else row.push(1);
-      }
+      // no walls: every tile is floor (1)
+      row.push(1);
     }
     map.push(row); revealed.push(rev);
   }
   // ensure player spawn clear
   player = {x: Math.floor(GRID/2), y:1};
   map[player.y][player.x] = 1;
-  // place treasures only on reachable tiles so the level is always finishable
+  // still allow the color-change item on level >= 2 (optional)
   const reachable = getReachable(player.x, player.y);
-  // filter out start tile
   const candidates = reachable.filter(p => !(p.x === player.x && p.y === player.y));
-  // ensure we don't place more treasures than available reachable tiles
-  const finalCount = Math.min(treasuresCount, candidates.length);
-  // shuffle candidates
-  for(let i = candidates.length - 1; i > 0; i--){
-    const j = Math.floor(Math.random() * (i+1));
-    const tmp = candidates[i]; candidates[i] = candidates[j]; candidates[j] = tmp;
-  }
-  for(let i=0;i<finalCount;i++){
-    const c = candidates[i];
-    map[c.y][c.x] = 3; treasuresRemaining++;
-  }
-  // place a color-change item on level 2 and above
   if(level >= 2){
     const itemCandidates = candidates.filter(p => map[p.y][p.x] === 1);
     if(itemCandidates.length > 0){
@@ -145,6 +130,18 @@ function draw(){
   // draw player as a simple human sprite with basic walk animation
   const px = player.x*TILE; const py = player.y*TILE;
   drawHumanPlayer(px, py);
+
+  // editor hover highlight
+  if(editMode && hoverTile.x >= 0 && hoverTile.y >= 0){
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    if(editTool === 'wall') ctx.fillStyle = '#222';
+    else if(editTool === 'erase') ctx.fillStyle = '#9ad3ff';
+    else if(editTool === 'treasure') ctx.fillStyle = '#ffd700';
+    else if(editTool === 'item') ctx.fillStyle = '#2b6cb0';
+    ctx.fillRect(hoverTile.x * TILE, hoverTile.y * TILE, TILE, TILE);
+    ctx.restore();
+  }
 
   // draw pickup message if any
   if(pickupMessage){
@@ -433,6 +430,21 @@ window.addEventListener('keydown', e=>{
   if(key === 'ArrowRight' || key === 'd') move(1,0);
   draw();
 });
+
+// keyboard: toggle edit mode and select tool
+window.addEventListener('keydown', e=>{
+  if(e.key === 'e' || e.key === 'E'){
+    editMode = !editMode;
+    pickupMessage = { text: editMode ? 'Mode édition activé (E pour quitter)' : 'Mode édition désactivé', start: performance.now(), x: player.x, y: player.y };
+    draw();
+    return;
+  }
+  if(!editMode) return;
+  if(e.key === '1') editTool = 'wall';
+  if(e.key === '2') editTool = 'erase';
+  if(e.key === '3') editTool = 'treasure';
+  if(e.key === '4') editTool = 'item';
+});
 pauseBtn.addEventListener('click', ()=>{ running=false; if(animationId) cancelAnimationFrame(animationId); animationId=null; });
 resetBtn.addEventListener('click', ()=>{ resetGame(); });
 
@@ -445,6 +457,12 @@ canvas.addEventListener('click', e=>{
   const tx = Math.floor(cx / TILE);
   const ty = Math.floor(cy / TILE);
   if(tx<0||tx>=GRID||ty<0||ty>=GRID) return;
+  // if in edit mode, modify the tile instead of pathfinding
+  if(editMode){
+    applyEdit(tx, ty, e);
+    draw();
+    return;
+  }
   if(!canMove(tx,ty)) return;
   // find shortest path using BFS
   const path = findPath({x:player.x,y:player.y}, {x:tx,y:ty});
@@ -453,16 +471,59 @@ canvas.addEventListener('click', e=>{
   }
 });
 
+canvas.addEventListener('mousemove', e=>{
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const tx = Math.floor(cx / TILE);
+  const ty = Math.floor(cy / TILE);
+  if(tx<0||tx>=GRID||ty<0||ty>=GRID){ hoverTile.x = -1; hoverTile.y = -1; return; }
+  hoverTile.x = tx; hoverTile.y = ty;
+  if(isDrawing && editMode){ applyEdit(tx, ty, e); draw(); }
+});
+
+canvas.addEventListener('mousedown', e=>{ if(editMode){ isDrawing = true; e.preventDefault(); }});
+canvas.addEventListener('mouseup', e=>{ if(editMode){ isDrawing = false; }});
+canvas.addEventListener('contextmenu', e=>{ if(editMode){ e.preventDefault(); applyEdit(hoverTile.x, hoverTile.y, e); draw(); }});
+
+function applyEdit(tx, ty, e){
+  if(tx<0||tx>=GRID||ty<0||ty>=GRID) return;
+  // don't overwrite player tile
+  if(tx === player.x && ty === player.y) return;
+  // choose tool: shift+click toggles item, alt+click toggles treasure, otherwise tool selected
+  if(e && e.shiftKey){
+    // toggle color-change item (4)
+    if(map[ty][tx] === 4) map[ty][tx] = 1;
+    else map[ty][tx] = 4;
+    return;
+  }
+  if(e && e.altKey){
+    // toggle treasure
+    if(map[ty][tx] === 3){ map[ty][tx] = 1; treasuresRemaining = Math.max(0, treasuresRemaining-1); }
+    else { map[ty][tx] = 3; treasuresRemaining += 1; }
+    updateHUD();
+    return;
+  }
+  // normal tool behavior based on selected tool
+  if(editTool === 'wall'){
+    map[ty][tx] = (map[ty][tx] === 2) ? 1 : 2;
+  } else if(editTool === 'erase'){
+    if(map[ty][tx] === 3) treasuresRemaining = Math.max(0, treasuresRemaining-1);
+    map[ty][tx] = 1;
+    updateHUD();
+  } else if(editTool === 'treasure'){
+    if(map[ty][tx] === 3){ map[ty][tx] = 1; treasuresRemaining = Math.max(0, treasuresRemaining-1); }
+    else { map[ty][tx] = 3; treasuresRemaining += 1; }
+    updateHUD();
+  } else if(editTool === 'item'){
+    map[ty][tx] = (map[ty][tx] === 4) ? 1 : 4;
+  }
+}
+
 function nextLevel(){
-  running = false; if(animationId) cancelAnimationFrame(animationId);
-  setTimeout(()=>{
-    alert('Niveau ' + level + ' terminé ! Génération du niveau suivant...');
-    level += 1;
-    // lose magnet power when advancing to the next level
-    magnetActive = false;
-    updateHUD(); generateMap(); draw();
-    setTimeout(()=>{ running=true; loop(); }, 600);
-  }, 120);
+  // automatic level creation disabled — show a brief message instead
+  pickupMessage = { text: 'Génération automatique de niveaux désactivée', start: performance.now(), x: player.x, y: player.y };
+  // do not increment `level` or call `generateMap()` anymore
 }
 
 function resetGame(){
